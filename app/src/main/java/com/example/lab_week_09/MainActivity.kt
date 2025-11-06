@@ -28,6 +28,9 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.lab_week_09.ui.theme.LAB_WEEK_09Theme
+import com.example.lab_week_09.ui.theme.OnBackgroundItemText
+import com.example.lab_week_09.ui.theme.OnBackgroundTitleText
+import com.example.lab_week_09.ui.theme.PrimaryTextButton
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -123,7 +126,8 @@ fun HomeContent(
                 // you can also use verticalAlignment = Arrangement.Center to align the Column vertically
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(
+                // here we call the OnBackgroundTitleText UI element
+                OnBackgroundTitleText(
                     text = stringResource(
                         id = R.string.enter_item
                     )
@@ -143,6 +147,15 @@ fun HomeContent(
                         onInputValueChange(it)
                     }
                 )
+
+                // here we call the PrimaryTextButton UI Element
+                PrimaryTextButton(
+                    text = stringResource(
+                        id = R.string.button_click
+                    )
+                ) {
+                    onButtonClick()
+                }
                 // here we use Button to display a button
                 // the onClick parameter is used to set what happens when the button is clicked
                 Button(onClick = {
@@ -167,7 +180,8 @@ fun HomeContent(
                 modifier = Modifier.padding(vertical = 4.dp).fillMaxSize(),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(text = item.name)
+                // here we call the OnBackgroundItemText UI Element
+                OnBackgroundItemText(text = item.name)
             }
         }
     }
