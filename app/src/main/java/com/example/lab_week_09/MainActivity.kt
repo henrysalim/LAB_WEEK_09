@@ -5,6 +5,7 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
@@ -17,16 +18,25 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.modifier.modifierLocalMapOf
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavHost
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.example.lab_week_09.ui.theme.LAB_WEEK_09Theme
 import com.example.lab_week_09.ui.theme.OnBackgroundItemText
 import com.example.lab_week_09.ui.theme.OnBackgroundTitleText
@@ -47,7 +57,10 @@ class MainActivity : ComponentActivity() {
                     // and set it as the color of the surface
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Home()
+                    val navController = rememberNavController()
+                    App(
+                        navController = navController
+                    )
                 }
             }
         }
@@ -60,7 +73,9 @@ data class Student(
 )
 
 @Composable
-fun Home() {
+fun Home(
+    navigateFromHomeToResult: (String) -> Unit
+) {
     // here we create a mutable state list of Student
     // we use remember to make the list remember its value
     // this is so that the list won't be recreated when the composable recomposes
@@ -91,11 +106,10 @@ fun Home() {
         inputField.value,
         { input -> inputField.value = inputField.value.copy(input) },
         {
-            if (inputField.value.name.isNotBlank()) {
-                listData.add(inputField.value)
-                inputField.value = Student("")
-            }
-        }
+            listData.add(inputField.value)
+            inputField.value = inputField.value.copy("")
+        },
+        { navigateFromHomeToResult(listData.toList().toString()) }
     )
 }
 
@@ -106,7 +120,8 @@ fun HomeContent(
     listData: SnapshotStateList<Student>,
     inputField: Student,
     onInputValueChange: (String) -> Unit,
-    onButtonClick: () -> Unit
+    onButtonClick: () -> Unit,
+    navigateFromHomeToResult: () -> Unit
 ) {
     // Here we can use LazyColumn to lazily display a list of items horizontally
     // LazyColumn is more efficient than column
@@ -148,28 +163,21 @@ fun HomeContent(
                     }
                 )
 
-                // here we call the PrimaryTextButton UI Element
-                PrimaryTextButton(
-                    text = stringResource(
-                        id = R.string.button_click
-                    )
-                ) {
-                    onButtonClick()
-                }
-                // here we use Button to display a button
-                // the onClick parameter is used to set what happens when the button is clicked
-                Button(onClick = {
-                    // here we call the onButtonClick Lambda function
-                    // this is so that we can add the inputField value to the listData
-                    // and reset the value of the inputField
-                    onButtonClick()
-                }) {
-                    // set the text of the button
-                    Text(
+                Row {
+                    PrimaryTextButton(
                         text = stringResource(
                             id = R.string.button_click
                         )
-                    )
+                    ) {
+                        onButtonClick()
+                    }
+                    PrimaryTextButton(
+                        text = stringResource(
+                            id = R.string.button_navigate
+                        )
+                    ) {
+                        navigateFromHomeToResult()
+                    }
                 }
             }
         }
@@ -190,8 +198,71 @@ fun HomeContent(
 // here we create a preview function of the Home composable
 // This function is specifically used to show a preview of the Home composable
 // This is only for development purpose
-@Preview(showBackground = true)
+//@Preview(showBackground = true)
+//@Composable
+//fun PreviewHome() {
+//    navigateFromHomeToResult: (String) -> Unit
+//}
+
+// here we create a composable function called App
+// this will be the root composable of the app
 @Composable
-fun PreviewHome() {
-    Home()
+fun App(navController: NavHostController) {
+    // here we use NavHost to create a navigation graph
+    // we pass the navController as a parameter
+    // we also set the startDestination to "home"
+    // this means that the app will start with the Home composable
+    NavHost(
+        navController = navController,
+        startDestination = "home"
+    ) {
+        // here we create a route called "home"
+        // we pass the Home composable as a parameter
+        // this means that when the app navigates to "home"
+        // the Home composable will be displayed
+        composable("home") {
+            // here we pass a Lambda function that navigates to "resultContnet"
+            // and pass the listData as a parameter
+            Home {
+                navController.navigate(
+                    "resultContent/?listData=$it"
+                )
+            }
+        }
+        // here we create a route called "resultContent"
+        // we pass the ResultContent composable as a parameter
+        // this means that when the app navigates to "resultContent"
+        // the ResultContent composable will be displayed
+        // you can also define arguments for the route
+        // here we define a String argument called "listdata"
+        // we use navArgument to define the argument
+        // we use NavType.StringType to define the type of the argument
+        composable(
+            "resultContent/?listData={listData}",
+            arguments = listOf(navArgument("listData") {
+                type = NavType.StringType
+            })
+        ) {
+            // here we pass the value of the argument to the ResultContent composable
+            ResultContent(
+                it.arguments?.getString("listData").orEmpty()
+            )
+        }
+    }
+}
+
+// here we create a composable function called ResultContent
+// ResultContent accepts a String parameter called listData from the Home composable
+// then displays the value of listData to the screen
+@Composable
+fun ResultContent(listData: String) {
+    Column(
+        modifier = Modifier
+            .padding(vertical = 4.dp)
+            .fillMaxSize(),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        // here we call the OnBackgroundItemText UI Element
+        OnBackgroundItemText(text = listData)
+    }
 }
