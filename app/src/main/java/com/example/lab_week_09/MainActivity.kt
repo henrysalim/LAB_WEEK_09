@@ -1,12 +1,17 @@
 package com.example.lab_week_09
 
 import android.os.Bundle
+import android.os.Debug
+import android.util.Log
+import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -26,9 +31,12 @@ import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.modifier.modifierLocalMapOf
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHost
 import androidx.navigation.NavHostController
@@ -41,6 +49,9 @@ import com.example.lab_week_09.ui.theme.LAB_WEEK_09Theme
 import com.example.lab_week_09.ui.theme.OnBackgroundItemText
 import com.example.lab_week_09.ui.theme.OnBackgroundTitleText
 import com.example.lab_week_09.ui.theme.PrimaryTextButton
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.Types
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -76,6 +87,7 @@ data class Student(
 fun Home(
     navigateFromHomeToResult: (String) -> Unit
 ) {
+    val context = LocalContext.current
     // here we create a mutable state list of Student
     // we use remember to make the list remember its value
     // this is so that the list won't be recreated when the composable recomposes
@@ -93,7 +105,6 @@ fun Home(
     // here we create a mutable state of Student
     // this is so that we can get the value of the input field
     var inputField = remember { mutableStateOf(Student("")) }
-
     // we call the HomeContent composable
     // here we pass:
     // listData to show the list of items inside the HomeContent
@@ -101,15 +112,25 @@ fun Home(
     // a Lambda function to update the value of the inputField
     // A Lambda function to add the inputField to the listData
 
+    val moshi = Moshi.Builder()
+        .add(KotlinJsonAdapterFactory())
+        .build()
+    val type = Types.newParameterizedType(List::class.java, Student::class.java)
+    val adapter = moshi.adapter<List<Student>>(type)
+
     HomeContent(
         listData,
         inputField.value,
         { input -> inputField.value = inputField.value.copy(input) },
         {
-            listData.add(inputField.value)
-            inputField.value = inputField.value.copy("")
+            if (inputField.value.equals(Student(""))) {
+                Toast.makeText(context, "Input cannot be empty!", Toast.LENGTH_SHORT).show()
+            } else {
+                listData.add(inputField.value)
+                inputField.value = inputField.value.copy("")
+            }
         },
-        { navigateFromHomeToResult(listData.toList().toString()) }
+        { navigateFromHomeToResult(adapter.toJson(listData)) }
     )
 }
 
@@ -242,11 +263,10 @@ fun App(navController: NavHostController) {
             arguments = listOf(navArgument("listData") {
                 type = NavType.StringType
             })
-        ) {
+        ) { backStackEntry ->
+            val jsonArg = backStackEntry.arguments?.getString("listData") ?: "[]"
             // here we pass the value of the argument to the ResultContent composable
-            ResultContent(
-                it.arguments?.getString("listData").orEmpty()
-            )
+            ResultContent(listData = jsonArg)
         }
     }
 }
@@ -256,13 +276,41 @@ fun App(navController: NavHostController) {
 // then displays the value of listData to the screen
 @Composable
 fun ResultContent(listData: String) {
-    Column(
+    val moshi = remember {
+        Moshi.Builder().add(KotlinJsonAdapterFactory()).build()
+    }
+    val type = remember {
+        Types.newParameterizedType(List::class.java, Student::class.java)
+    }
+    val adapter = remember { moshi.adapter<List<Student>>(type) }
+
+    val students = remember(listData) {
+        try {
+            adapter.fromJson(listData).orEmpty()
+        } catch (e: Exception) {
+            Log.e("ResultContent", "JSON parse error: ${e.message}")
+            emptyList<Student>()
+        }
+    }
+
+    LazyColumn(
         modifier = Modifier
             .padding(vertical = 4.dp)
             .fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         // here we call the OnBackgroundItemText UI Element
-        OnBackgroundItemText(text = listData)
+        item {
+            Text(text = "List of Students", fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(14.dp))
+        }
+        if (students.isNotEmpty()) {
+            items(students) { student ->
+                OnBackgroundItemText(text = student.name)
+                Spacer(Modifier.height(8.dp))
+            }
+        } else {
+            item { OnBackgroundItemText(text = "No data available") }
+        }
     }
 }
